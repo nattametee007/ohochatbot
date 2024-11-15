@@ -1,7 +1,7 @@
 import streamlit as st
 from langflow.load import run_flow_from_json
 import json
-import uuid  # Add this import for generating unique IDs
+import uuid
 
 # Configure Streamlit page
 st.set_page_config(
@@ -16,24 +16,33 @@ if "messages" not in st.session_state:
 if "session_id" not in st.session_state:
     st.session_state.session_id = str(uuid.uuid4())
 
-# Define the tweaks dictionary with chat configuration
+# Define chat configuration that will be used for all chat components
+CHAT_CONFIG = {
+    "session_id": st.session_state.session_id,
+    "sender": "user",
+    "sender_name": "User"
+}
+
+# Define the tweaks dictionary with chat configuration for all chat-related components
 TWEAKS = {
     "File-5WyjM": {},
     "SplitText-M5sZ2": {},
     "Pinecone-Ia2GC": {},
     "OpenAIEmbeddings-pmhCH": {},
-    "ChatInput-dtNrJ": {
-        "session_id": st.session_state.session_id,
-        "sender": "user",
-        "sender_name": "User"
-    },
+    "ChatInput-dtNrJ": CHAT_CONFIG,  # Apply chat config to ChatInput
     "Pinecone-Ki9ox": {},
     "OpenAIEmbeddings-aKxV5": {},
     "ParseData-XV7R7": {},
     "Prompt-y8lI9": {},
-    "Memory-ZNCLd": {},
+    "Memory-ZNCLd": {
+        "session_id": st.session_state.session_id  # Apply session ID to Memory component
+    },
     "OpenAIModel-EiWSb": {},
-    "ChatOutput-yudoU": {},
+    "ChatOutput-yudoU": {  # Apply chat config to ChatOutput
+        **CHAT_CONFIG,
+        "sender": "assistant",
+        "sender_name": "Assistant"
+    },
     "File-a7Evd": {},
     "File-7CouN": {},
     "File-UFmKb": {},
@@ -44,20 +53,31 @@ def extract_message_from_response(response):
     """Extract the actual message text from the Langflow response"""
     try:
         if isinstance(response, list) and len(response) > 0:
-            if hasattr(response[0], 'outputs'):
-                message_data = response[0].outputs[0].results['message']
-                if hasattr(message_data, 'text'):
-                    return message_data.text
-                elif isinstance(message_data, dict) and 'text' in message_data:
-                    return message_data['text']
-                else:
-                    return str(message_data)
+            first_response = response[0]
+            
+            # Try different ways to access the message
+            if hasattr(first_response, 'outputs'):
+                outputs = first_response.outputs
+                if isinstance(outputs, list) and len(outputs) > 0:
+                    results = outputs[0].results
+                    if isinstance(results, dict) and 'message' in results:
+                        message = results['message']
+                        if isinstance(message, dict) and 'text' in message:
+                            return message['text']
+                        elif hasattr(message, 'text'):
+                            return message.text
+                        else:
+                            return str(message)
+            
+            # If we can't find the message in the expected structure,
+            # try to convert the entire response to string
+            return str(first_response)
     except Exception as e:
         st.error(f"Error extracting message: {str(e)}")
-    return str(response)  # Return full response as fallback
+    return str(response)
 
 # Display chat title
-st.title("💬 Oho Chat Assistant")
+st.title("💬 Chat Assistant")
 st.markdown("---")
 
 # Display chat messages
@@ -78,10 +98,18 @@ if prompt := st.chat_input("What would you like to know?"):
     with st.chat_message("assistant"):
         with st.spinner("Thinking..."):
             try:
+                # Create input data with all required fields
+                input_data = {
+                    "input": prompt,
+                    "session_id": st.session_state.session_id,
+                    "sender": "user",
+                    "sender_name": "User"
+                }
+                
                 # Run the Langflow model
                 result = run_flow_from_json(
                     flow="ohochatflow.json",
-                    input_value=prompt,
+                    input_value=input_data,
                     session_id=st.session_state.session_id,
                     fallback_to_env_vars=True,
                     tweaks=TWEAKS
@@ -99,13 +127,15 @@ if prompt := st.chat_input("What would you like to know?"):
             except Exception as e:
                 error_message = f"An error occurred: {str(e)}"
                 st.error(error_message)
+                st.write("Full error:", e)  # Additional error info for debugging
 
 # Add a clear button to reset the chat
 if st.button("Clear Chat"):
     st.session_state.messages = []
     st.rerun()
 
-# Optional: Add a debug section to see the raw response
+# Debug section
 if st.checkbox("Show debug info"):
     st.write("Session ID:", st.session_state.session_id)
+    st.write("TWEAKS configuration:", TWEAKS)
     st.write("Last raw response:", result if 'result' in locals() else "No response yet")
