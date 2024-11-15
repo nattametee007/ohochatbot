@@ -1,76 +1,79 @@
 import streamlit as st
 from langflow.load import run_flow_from_json
-import json
-import uuid
+import os
+from typing import Dict, Any
 
-# Configure Streamlit page
-st.set_page_config(
-    page_title="Oho AI Chat Assistant",
-    page_icon="💬",
-    layout="centered"
-)
+# Configure the page
+st.set_page_config(page_title="Langflow Chat", layout="wide")
 
-# Initialize session state for chat history, memory, and session ID
+# Initialize session state for chat history if it doesn't exist
 if "messages" not in st.session_state:
     st.session_state.messages = []
-if "session_id" not in st.session_state:
-    st.session_state.session_id = str(uuid.uuid4())
-if "memory" not in st.session_state:
-    st.session_state.memory = []
 
-# Define the tweaks dictionary with chat configuration and memory
+# Define the tweaks configuration
 TWEAKS = {
-    "ChatInput-dtNrJ": {
-        "session_id": st.session_state.session_id,
-        "sender": "user",
-        "sender_name": "User"
-    },
-    "Memory-ZNCLd": {
-        "session_id": st.session_state.session_id,
-        "memory": st.session_state.memory
-    },
     "File-5WyjM": {},
     "SplitText-M5sZ2": {},
     "Pinecone-Ia2GC": {},
     "OpenAIEmbeddings-pmhCH": {},
+    "ChatInput-dtNrJ": {},
     "Pinecone-Ki9ox": {},
     "OpenAIEmbeddings-aKxV5": {},
     "ParseData-XV7R7": {},
     "Prompt-y8lI9": {},
+    "Memory-ZNCLd": {},
     "OpenAIModel-EiWSb": {},
     "ChatOutput-yudoU": {},
     "File-a7Evd": {},
     "File-7CouN": {},
     "File-UFmKb": {},
-    "File-GPZCY": {}
+    "File-GPZCY": {},
+    "File-rBbDn": {}
 }
 
-def extract_message_from_response(response):
-    """Extract the actual message text from the Langflow response and update memory"""
+def extract_message(response: Any) -> str:
+    """
+    Extract the message text from the Langflow response
+    """
     try:
+        # Check if response is a list of RunOutputs
         if isinstance(response, list) and len(response) > 0:
-            # Extract message
-            if hasattr(response[0], 'outputs'):
-                message_data = response[0].outputs[0].results['message']
+            # Get the first RunOutputs object
+            run_output = response[0]
+            
+            # Get the results from the outputs
+            if hasattr(run_output, 'outputs') and len(run_output.outputs) > 0:
+                # Get the first result
+                result = run_output.outputs[0]
                 
-                # Update memory if present in response
-                if 'memory' in response[0].outputs[0].results:
-                    st.session_state.memory = response[0].outputs[0].results['memory']
+                # Extract message from ResultData
+                if hasattr(result, 'results'):
+                    message_obj = result.results.get('message')
+                    if message_obj and hasattr(message_obj, 'text'):
+                        return message_obj.text
+                    
+        # If we couldn't extract the message using the above method,
+        # try to get it from the string representation
+        str_response = str(response)
+        if "'text': '" in str_response:
+            # Find the text between 'text': ' and the next '
+            start_idx = str_response.find("'text': '") + 8
+            end_idx = str_response.find("'", start_idx)
+            if start_idx != -1 and end_idx != -1:
+                return str_response[start_idx:end_idx]
                 
-                # Extract message text
-                if hasattr(message_data, 'text'):
-                    return message_data.text
-                elif isinstance(message_data, dict) and 'text' in message_data:
-                    return message_data['text']
-                else:
-                    return str(message_data)
+        return "I couldn't process that properly. Could you please try again?"
+        
     except Exception as e:
         st.error(f"Error extracting message: {str(e)}")
-    return str(response)  # Return full response as fallback
+        return "Sorry, I encountered an error processing that message."
 
-# Display chat title
-st.title("💬 Oho AI Chat Assistant")
-st.markdown("---")
+# Create the main UI
+st.title("Langflow Chat")
+
+# Create a unique session ID for each user
+if "session_id" not in st.session_state:
+    st.session_state.session_id = os.urandom(16).hex()
 
 # Display chat messages
 for message in st.session_state.messages:
@@ -79,22 +82,17 @@ for message in st.session_state.messages:
 
 # Chat input
 if prompt := st.chat_input("What would you like to know?"):
-    # Display user message
-    with st.chat_message("user"):
-        st.markdown(prompt)
-        
     # Add user message to chat history
     st.session_state.messages.append({"role": "user", "content": prompt})
-        
-    # Display assistant thinking message
+    with st.chat_message("user"):
+        st.markdown(prompt)
+
+    # Display assistant response
     with st.chat_message("assistant"):
         with st.spinner("Thinking..."):
             try:
-                # Update tweaks with current memory
-                TWEAKS["Memory-ZNCLd"]["memory"] = st.session_state.memory
-                
-                # Run the Langflow model
-                result = run_flow_from_json(
+                # Run the Langflow pipeline
+                response = run_flow_from_json(
                     flow="ohochatflow.json",
                     input_value=prompt,
                     session_id=st.session_state.session_id,
@@ -102,8 +100,8 @@ if prompt := st.chat_input("What would you like to know?"):
                     tweaks=TWEAKS
                 )
                 
-                # Extract the actual message from the response
-                message = extract_message_from_response(result)
+                # Extract the message from the response
+                message = extract_message(response)
                 
                 # Display the response
                 st.markdown(message)
@@ -112,17 +110,13 @@ if prompt := st.chat_input("What would you like to know?"):
                 st.session_state.messages.append({"role": "assistant", "content": message})
                 
             except Exception as e:
-                error_message = f"An error occurred: {str(e)}"
-                st.error(error_message)
+                st.error(f"An error occurred: {str(e)}")
 
-# Add a clear button to reset the chat
-if st.button("Clear Chat"):
-    st.session_state.messages = []
-    st.session_state.memory = []  # Also clear the memory
-    st.rerun()
-
-# Debug section
-if st.checkbox("Show debug info"):
-    st.write("Session ID:", st.session_state.session_id)
-    st.write("Memory:", st.session_state.memory)
-    st.write("Last raw response:", result if 'result' in locals() else "No response yet")
+# Add a sidebar with information
+with st.sidebar:
+    st.title("About")
+    st.markdown("""
+    This is a Langflow-powered chatbot integrated with Streamlit.
+    
+    The chat history is maintained for your session, and each session has a unique identifier.
+    """)
