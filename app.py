@@ -73,7 +73,7 @@ if prompt := st.chat_input("What would you like to know?"):
             try:
                 # Run the Langflow model
                 result = run_flow_from_json(
-                    flow="ohochat.json",
+                    flow="ohochatflow.json",
                     input_value=prompt,
                     session_id=str(st.session_state),
                     fallback_to_env_vars=True,
