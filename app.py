@@ -7,6 +7,14 @@ from datetime import datetime
 # Configure the page
 st.set_page_config(page_title="Langflow Chat", layout="wide")
 
+# Check for OpenAI API key
+if 'OPENAI_API_KEY' not in st.secrets:
+    st.error("Please set the OPENAI_API_KEY in your secrets. Check the app's documentation for instructions.")
+    st.stop()
+
+# Set the API key as an environment variable
+os.environ['OPENAI_API_KEY'] = st.secrets['OPENAI_API_KEY']
+
 # Initialize session state for chat history if it doesn't exist
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -15,23 +23,30 @@ if "messages" not in st.session_state:
 if "session_id" not in st.session_state:
     st.session_state.session_id = str(uuid.uuid4())
 
-# Define the tweaks configuration
+# Define the tweaks configuration with OpenAI API keys
 TWEAKS = {
     "File-5WyjM": {},
     "SplitText-M5sZ2": {},
     "Pinecone-Ia2GC": {},
-    "OpenAIEmbeddings-pmhCH": {},
+    "OpenAIEmbeddings-pmhCH": {
+        "openai_api_key": st.secrets['OPENAI_API_KEY']
+    },
     "ChatInput-dtNrJ": {
         "session_id": st.session_state.session_id,
         "sender": "Human",
         "sender_name": "User"
     },
     "Pinecone-Ki9ox": {},
-    "OpenAIEmbeddings-aKxV5": {},
+    "OpenAIEmbeddings-aKxV5": {
+        "openai_api_key": st.secrets['OPENAI_API_KEY']
+    },
     "ParseData-XV7R7": {},
     "Prompt-y8lI9": {},
     "Memory-ZNCLd": {},
-    "OpenAIModel-EiWSb": {},
+    "OpenAIModel-EiWSb": {
+        "openai_api_key": st.secrets['OPENAI_API_KEY'],
+        "model_name": "gpt-4o-mini"  # You can specify the model here if needed
+    },
     "ChatOutput-yudoU": {},
     "File-a7Evd": {},
     "File-7CouN": {},
@@ -40,6 +55,7 @@ TWEAKS = {
     "File-rBbDn": {}
 }
 
+# Rest of your code remains the same...
 def extract_message(response):
     """
     Extract the message text from the Langflow response
