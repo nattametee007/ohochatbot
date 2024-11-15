@@ -17,37 +17,30 @@ if "messages" not in st.session_state:
 if "session_id" not in st.session_state:
     st.session_state.session_id = str(uuid.uuid4())
 
-# Define chat configuration
-CHAT_CONFIG = {
-    "session_id": st.session_state.session_id,
-    "sender": "user",
-    "sender_name": "User"
-}
+# Create a JSON structure for the input
+def create_chat_input(message):
+    return json.dumps({
+        "text": message,
+        "session_id": st.session_state.session_id,
+        "sender": "user",
+        "sender_name": "User"
+    })
 
 # Define the tweaks dictionary
 TWEAKS = {
-    "File-5WyjM": {},
-    "SplitText-M5sZ2": {},
-    "Pinecone-Ia2GC": {},
-    "OpenAIEmbeddings-pmhCH": {},
-    "ChatInput-dtNrJ": CHAT_CONFIG,
-    "Pinecone-Ki9ox": {},
-    "OpenAIEmbeddings-aKxV5": {},
-    "ParseData-XV7R7": {},
-    "Prompt-y8lI9": {},
-    "Memory-ZNCLd": {
-        "session_id": st.session_state.session_id
+    "ChatInput-dtNrJ": {
+        "session_id": st.session_state.session_id,
+        "sender": "user",
+        "sender_name": "User"
     },
-    "OpenAIModel-EiWSb": {},
     "ChatOutput-yudoU": {
-        **CHAT_CONFIG,
+        "session_id": st.session_state.session_id,
         "sender": "assistant",
         "sender_name": "Assistant"
     },
-    "File-a7Evd": {},
-    "File-7CouN": {},
-    "File-UFmKb": {},
-    "File-GPZCY": {}
+    "Memory-ZNCLd": {
+        "session_id": st.session_state.session_id
+    }
 }
 
 def extract_message_from_response(response):
@@ -72,6 +65,14 @@ def extract_message_from_response(response):
         st.error(f"Error extracting message: {str(e)}")
     return str(response)
 
+# Load the Langflow configuration
+try:
+    with open("ohochatflow.json", "r") as f:
+        flow_config = json.load(f)
+except Exception as e:
+    st.error(f"Error loading flow configuration: {str(e)}")
+    flow_config = {}
+
 # Display chat title
 st.title("💬 Chat Assistant")
 st.markdown("---")
@@ -94,12 +95,13 @@ if prompt := st.chat_input("What would you like to know?"):
     with st.chat_message("assistant"):
         with st.spinner("Thinking..."):
             try:
-                # Run the Langflow model with just the prompt string
+                # Prepare the input with session information
+                chat_input = create_chat_input(prompt)
+                
+                # Run the Langflow model
                 result = run_flow_from_json(
                     flow="ohochatflow.json",
-                    input_value=prompt,  # Just pass the prompt string directly
-                    session_id=st.session_state.session_id,
-                    fallback_to_env_vars=True,
+                    input_value=chat_input,
                     tweaks=TWEAKS
                 )
                 
@@ -122,10 +124,10 @@ if st.button("Clear Chat"):
     st.session_state.messages = []
     st.rerun()
 
-# Debug section with environment detection
-is_local = not os.environ.get('STREAMLIT_DEPLOYED', False)
+# Debug section
 if st.checkbox("Show debug info"):
     st.write("Session ID:", st.session_state.session_id)
-    st.write("Environment:", "Local" if is_local else "Deployed")
+    st.write("Chat Input Structure:", create_chat_input("example"))
     st.write("TWEAKS configuration:", TWEAKS)
     st.write("Last raw response:", result if 'result' in locals() else "No response yet")
+    st.write("Flow Config:", flow_config)
