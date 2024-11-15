@@ -1,6 +1,7 @@
 import streamlit as st
 from langflow.load import run_flow_from_json
 import json
+import uuid  # Add this import for generating unique IDs
 
 # Configure Streamlit page
 st.set_page_config(
@@ -9,17 +10,23 @@ st.set_page_config(
     layout="centered"
 )
 
-# Initialize session state for chat history if it doesn't exist
+# Initialize session state for chat history and session ID if they don't exist
 if "messages" not in st.session_state:
     st.session_state.messages = []
+if "session_id" not in st.session_state:
+    st.session_state.session_id = str(uuid.uuid4())
 
-# Define the tweaks dictionary
+# Define the tweaks dictionary with chat configuration
 TWEAKS = {
     "File-5WyjM": {},
     "SplitText-M5sZ2": {},
     "Pinecone-Ia2GC": {},
     "OpenAIEmbeddings-pmhCH": {},
-    "ChatInput-dtNrJ": {},
+    "ChatInput-dtNrJ": {
+        "session_id": st.session_state.session_id,
+        "sender": "user",
+        "sender_name": "User"
+    },
     "Pinecone-Ki9ox": {},
     "OpenAIEmbeddings-aKxV5": {},
     "ParseData-XV7R7": {},
@@ -36,21 +43,21 @@ TWEAKS = {
 def extract_message_from_response(response):
     """Extract the actual message text from the Langflow response"""
     try:
-        # The message is nested in the response structure
-        # Access the first message from the outputs
-        if hasattr(response[0], 'outputs'):
-            message_data = response[0].outputs[0].results['message']
-            if hasattr(message_data, 'text'):
-                return message_data.text
-            elif isinstance(message_data, dict) and 'text' in message_data:
-                return message_data['text']
+        if isinstance(response, list) and len(response) > 0:
+            if hasattr(response[0], 'outputs'):
+                message_data = response[0].outputs[0].results['message']
+                if hasattr(message_data, 'text'):
+                    return message_data.text
+                elif isinstance(message_data, dict) and 'text' in message_data:
+                    return message_data['text']
+                else:
+                    return str(message_data)
     except Exception as e:
         st.error(f"Error extracting message: {str(e)}")
-        return str(response)  # Return full response as fallback
     return str(response)  # Return full response as fallback
 
 # Display chat title
-st.title("💬 Chat Assistant")
+st.title("💬 Oho Chat Assistant")
 st.markdown("---")
 
 # Display chat messages
@@ -75,7 +82,7 @@ if prompt := st.chat_input("What would you like to know?"):
                 result = run_flow_from_json(
                     flow="ohochatflow.json",
                     input_value=prompt,
-                    session_id=str(st.session_state),
+                    session_id=st.session_state.session_id,
                     fallback_to_env_vars=True,
                     tweaks=TWEAKS
                 )
@@ -96,8 +103,9 @@ if prompt := st.chat_input("What would you like to know?"):
 # Add a clear button to reset the chat
 if st.button("Clear Chat"):
     st.session_state.messages = []
-    st.rerun()  # Updated from experimental_rerun() to rerun()
+    st.rerun()
 
 # Optional: Add a debug section to see the raw response
 if st.checkbox("Show debug info"):
+    st.write("Session ID:", st.session_state.session_id)
     st.write("Last raw response:", result if 'result' in locals() else "No response yet")
