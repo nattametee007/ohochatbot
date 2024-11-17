@@ -1,142 +1,220 @@
-# app.py
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+import streamlit as st
 from langflow.load import run_flow_from_json
-import uvicorn
-import json
 import os
-from typing import Optional
-import logging
-import re
+from typing import Dict, Any, Tuple
+import json
+from dotenv import load_dotenv
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Load environment variables
+load_dotenv()
 
-app = FastAPI(title="Oho Chat API")
+# Validate required environment variables
+def validate_env_vars():
+    """Validate that required environment variables are set."""
+    required_vars = ['OPENAI_API_KEY', 'PINECONE_API_KEY']
+    missing_vars = [var for var in required_vars if not os.getenv(var)]
+    
+    if missing_vars:
+        st.error(f"Missing required environment variables: {', '.join(missing_vars)}")
+        st.info("Please set these variables in your .env file or in your Streamlit deployment settings.")
+        return False
+    return True
 
-# Enable CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-class ChatRequest(BaseModel):
-    message: str
-    session_id: Optional[str] = ""
-
-class ChatResponse(BaseModel):
-    response: str
-
-# Load flow configuration
-try:
-    with open("ohochatflow.json", "r") as f:
-        flow_config = json.load(f)
-        logger.info("Successfully loaded flow configuration")
-except FileNotFoundError:
-    logger.error("Flow configuration file 'ohochatflow.json' not found!")
-    raise Exception("Flow configuration file 'ohochatflow.json' not found!")
 
 TWEAKS = {
-    "File-5WyjM": {},
-    "SplitText-M5sZ2": {},
-    "Pinecone-Ia2GC": {},
-    "OpenAIEmbeddings-pmhCH": {},
-    "ChatInput-dtNrJ": {},
-    "Pinecone-Ki9ox": {},
-    "OpenAIEmbeddings-aKxV5": {},
-    "ParseData-XV7R7": {},
-    "Prompt-y8lI9": {},
-    "Memory-ZNCLd": {},
-    "OpenAIModel-EiWSb": {},
-    "ChatOutput-yudoU": {},
-    "File-a7Evd": {},
-    "File-7CouN": {},
-    "File-UFmKb": {},
-    "File-GPZCY": {},
-    "File-rBbDn": {}
+  "ChatInput-8k4C7": {
+    "background_color": "",
+    "chat_icon": "",
+    "files": "",
+    "input_value": "",
+    "sender": "User",
+    "sender_name": "User",
+    "session_id": "",
+    "should_store_message": True,
+    "text_color": ""
+  },
+  "ParseData-WAHhe": {
+    "sep": "\n",
+    "template": "{text}"
+  },
+  "Prompt-kHdIO": {
+    "context": "",
+    "question": "",
+    "template": "{context} \n--- \n{memory}\n\nHi there! I'm {name}, a friendly service assistant ({gender}). I really enjoy helping people and having natural conversations! \n\nGiven what I know from the context above, I'll do my best to help you with your question. I aim to keep our chat warm and casual - just like talking to a friend who's knowledgeable and eager to help.\n\nQuestion: {question}\n\nLet me share my thoughts on that...\n[Answer in a conversational, friendly tone while maintaining professionalism]\n\nIs there anything else you'd like me to clarify? I'm happy to explain further or approach this from a different angle if that would be helpful!",
+    "memory": "",
+    "name": "",
+    "gender": "female"
+  },
+  "OpenAIModel-bJOaR": {
+    "api_key": os.getenv('OPENAI_API_KEY'),
+    "input_value": "",
+    "json_mode": False,
+    "max_tokens": None,
+    "model_kwargs": {},
+    "model_name": "gpt-4o-mini",
+    "openai_api_base": "",
+    "output_schema": {},
+    "seed": 1,
+    "stream": True,
+    "system_message": "",
+    "temperature": 0.4
+  },
+  "ChatOutput-QBSG8": {
+    "background_color": "",
+    "chat_icon": "",
+    "data_template": "{text}",
+    "input_value": "",
+    "sender": "Machine",
+    "sender_name": "AI",
+    "session_id": "",
+    "should_store_message": True,
+    "text_color": ""
+  },
+  "OpenAIEmbeddings-2xWVE": {
+    "chunk_size": 1000,
+    "client": "",
+    "default_headers": {},
+    "default_query": {},
+    "deployment": "",
+    "dimensions": None,
+    "embedding_ctx_length": 1536,
+    "max_retries": 3,
+    "model": "text-embedding-3-small",
+    "model_kwargs": {},
+    "openai_api_base": "",
+    "openai_api_key": os.getenv('OPENAI_API_KEY'),
+    "openai_api_type": "",
+    "openai_api_version": "",
+    "openai_organization": "",
+    "openai_proxy": "",
+    "request_timeout": None,
+    "show_progress_bar": False,
+    "skip_empty": False,
+    "tiktoken_enable": True,
+    "tiktoken_model_name": ""
+  },
+  "Pinecone-invrX": {
+    "distance_strategy": "Cosine",
+    "index_name": "ohotest",
+    "namespace": "ohotest",
+    "number_of_results": 4,
+    "pinecone_api_key": os.getenv('PINECONE_API_KEY'),
+    "search_query": "",
+    "text_key": "text"
+  }
 }
 
-def extract_message_from_response(response_obj):
-    """Extract the actual message text from the Langflow response object"""
+def load_flow_file(file_path: str) -> Dict[str, Any]:
+    """Load the flow JSON file."""
     try:
-        # Convert response object to string if it's not already
-        response_str = str(response_obj)
+        with open(file_path, 'r') as file:
+            return json.load(file)
+    except FileNotFoundError:
+        st.error(f"Flow file not found: {file_path}")
+        return None
+    except json.JSONDecodeError:
+        st.error("Invalid JSON file")
+        return None
+
+def extract_message_data(result) -> Tuple[str, str, str, str]:
+    """
+    Extract message, session_id, sender, and sender_name from the LangFlow response.
+    Returns: (message, session_id, sender, sender_name)
+    """
+    try:
+        first_output = result[0]
+        if hasattr(first_output, 'outputs') and first_output.outputs:
+            output = first_output.outputs[0]
+            if hasattr(output, 'results') and hasattr(output.results, 'get'):
+                message_data = output.results.get('message', {})
+                if hasattr(message_data, 'data'):
+                    data = message_data.data
+                elif isinstance(message_data, dict):
+                    data = message_data
+                else:
+                    data = {'text': str(message_data)}
+                
+                return (
+                    data.get('text', ''),
+                    data.get('session_id', ''),
+                    data.get('sender', ''),
+                    data.get('sender_name', '')
+                )
         
-        # Try to find the message content directly
-        if isinstance(response_obj, (dict, str)):
-            # If it's a dictionary, try to get the message directly
-            if isinstance(response_obj, dict):
-                if 'text' in response_obj:
-                    return response_obj['text']
-                if 'message' in response_obj:
-                    return response_obj['message']
-
-        # If the above fails, try to extract using regex
-        message_match = re.search(r"text='([^']*)'", response_str)
-        if message_match:
-            return message_match.group(1)
-            
-        # If regex fails, try to find any Thai text in the response
-        thai_text_match = re.search(r'[ก-๙]+[^"\']*[ก-๙]+', response_str)
-        if thai_text_match:
-            return thai_text_match.group(0)
-
-        # If all else fails, return a default message
-        return "ขออภัยค่ะ ไม่สามารถประมวลผลข้อความได้ในขณะนี้"
-
+        return ('No message found', '', '', '')
     except Exception as e:
-        logger.error(f"Error extracting message: {str(e)}")
-        return "ขออภัยค่ะ เกิดข้อผิดพลาดในการประมวลผล"
+        st.error(f"Error extracting message data: {str(e)}")
+        return ('Error processing response', '', '', '')
 
-@app.get("/health")
-def health_check():
-    return {"status": "healthy"}
-
-def run_flow_async(message: str, session_id: str):
-    """Run the flow in a synchronous context"""
+def process_message(message: str, flow_data: Dict[str, Any]) -> Tuple[str, str, str, str]:
+    """Process the message using LangFlow."""
     try:
-        return run_flow_from_json(
-            flow="ohochatflow.json",
+        result = run_flow_from_json(
+            flow=flow_data,
             input_value=message,
-            session_id=session_id,
+            session_id=st.session_state.get('session_id', ''),
             fallback_to_env_vars=True,
             tweaks=TWEAKS
         )
+        return extract_message_data(result)
     except Exception as e:
-        logger.error(f"Error in run_flow_async: {str(e)}")
-        raise e
+        st.error(f"Error processing message: {str(e)}")
+        return None
 
-@app.post("/chat", response_model=ChatResponse)
-def chat(request: ChatRequest):
-    try:
-        logger.info(f"Received chat request with message: {request.message}")
-        
-        # Run the flow synchronously
-        result = run_flow_async(request.message, request.session_id)
-        
-        # Extract the actual message from the complex response
-        clean_response = extract_message_from_response(result)
-        
-        logger.info(f"Processed response: {clean_response}")
-        return ChatResponse(response=clean_response)
+def main():
+    st.title("LangFlow Chat Interface")
     
-    except Exception as e:
-        logger.error(f"Error processing chat request: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+    # Validate environment variables before proceeding
+    if not validate_env_vars():
+        st.stop()
+    
+    # Initialize session state
+    if 'messages' not in st.session_state:
+        st.session_state.messages = []
+    
+    # Load the flow file
+    flow_data = load_flow_file("rag1.json")
+    if not flow_data:
+        st.stop()
+    
+    # Display chat messages
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+            if "metadata" in message:
+                with st.expander("Message Metadata"):
+                    st.json(message["metadata"])
+    
+    # Chat input
+    if prompt := st.chat_input("What would you like to know?"):
+        # Add user message to chat history
+        st.session_state.messages.append({
+            "role": "user", 
+            "content": prompt,
+            "metadata": {
+                "session_id": "",
+                "sender": "user",
+                "sender_name": "User"
+            }
+        })
+        with st.chat_message("user"):
+            st.markdown(prompt)
+            
+        # Process the message and display response
+        with st.chat_message("assistant"):
+            with st.spinner("Thinking..."):
+                message, session_id, sender, sender_name = process_message(prompt, flow_data)
+                if message:
+                    st.markdown(message)
+                    st.session_state.messages.append({
+                        "role": "assistant",
+                        "content": message,
+                        "metadata": {
+                            "session_id": session_id,
+                            "sender": sender,
+                            "sender_name": sender_name
+                        }
+                    })
 
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 8000))
-    logger.info(f"Starting server on port {port}")
-    uvicorn.run(
-        "app:app",
-        host="0.0.0.0",
-        port=port,
-        loop="asyncio",
-        reload=True
-    )
+    main()
