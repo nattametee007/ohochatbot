@@ -20,88 +20,90 @@ def validate_env_vars():
         return False
     return True
 
+
 TWEAKS = {
-    "ChatInput-8k4C7": {
-        "background_color": "",
-        "chat_icon": "",
-        "files": "",
-        "input_value": "",
-        "sender": "User",
-        "sender_name": "User",
-        "session_id": "",
-        "should_store_message": True,
-        "text_color": ""
-    },
-    "ParseData-WAHhe": {
-        "sep": "\n",
-        "template": "{text}"
-    },
-    "Prompt-kHdIO": {
-        "context": "",
-        "question": "",
-        "template": "{context} \n--- \n{memory}\n\nHi there! I'm {name}, a friendly service assistant ({gender}). I really enjoy helping people and having natural conversations! \n\nGiven what I know from the context above, I'll do my best to help you with your question. I aim to keep our chat warm and casual - just like talking to a friend who's knowledgeable and eager to help.\n\nQuestion: {question}\n\nLet me share my thoughts on that...\n[Answer in a conversational, friendly tone while maintaining professionalism]\n\nIs there anything else you'd like me to clarify? I'm happy to explain further or approach this from a different angle if that would be helpful!",
-        "memory": "",
-        "name": "",
-        "gender": "female"
-    },
-    "OpenAIModel-bJOaR": {
-        "api_key": os.getenv('OPENAI_API_KEY'),
-        "input_value": "",
-        "json_mode": False,
-        "max_tokens": None,
-        "model_kwargs": {},
-        "model_name": "gpt-4o-mini",
-        "openai_api_base": "",
-        "output_schema": {},
-        "seed": 1,
-        "stream": True,
-        "system_message": "",
-        "temperature": 0.4
-    },
-    "ChatOutput-QBSG8": {
-        "background_color": "",
-        "chat_icon": "",
-        "data_template": "{text}",
-        "input_value": "",
-        "sender": "Machine",
-        "sender_name": "AI",
-        "session_id": "",
-        "should_store_message": True,
-        "text_color": ""
-    },
-    "OpenAIEmbeddings-2xWVE": {
-        "chunk_size": 1000,
-        "client": "",
-        "default_headers": {},
-        "default_query": {},
-        "deployment": "",
-        "dimensions": None,
-        "embedding_ctx_length": 1536,
-        "max_retries": 3,
-        "model": "text-embedding-3-small",
-        "model_kwargs": {},
-        "openai_api_base": "",
-        "openai_api_key": os.getenv('OPENAI_API_KEY'),
-        "openai_api_type": "",
-        "openai_api_version": "",
-        "openai_organization": "",
-        "openai_proxy": "",
-        "request_timeout": None,
-        "show_progress_bar": False,
-        "skip_empty": False,
-        "tiktoken_enable": True,
-        "tiktoken_model_name": ""
-    },
-    "Pinecone-invrX": {
-        "distance_strategy": "Cosine",
-        "index_name": "ohotest",
-        "namespace": "ohotest",
-        "number_of_results": 4,
-        "pinecone_api_key": os.getenv('PINECONE_API_KEY'),
-        "search_query": "",
-        "text_key": "text"
-    }
+  "ChatInput-8k4C7": {
+    "background_color": "",
+    "chat_icon": "",
+    "files": "",
+    "input_value": "",
+    "sender": "User",
+    "sender_name": "User",
+    "session_id": "",
+    "should_store_message": True,
+    "text_color": ""
+  },
+  "ParseData-WAHhe": {
+    "sep": "\n",
+    "template": "{text}"
+  },
+  "Prompt-kHdIO": {
+    "context": "",
+    "question": "",
+    "template": "{context} \n--- \n{memory}\n\nHi there! I'm {name}, a friendly service assistant ({gender}). I really enjoy helping people and having natural conversations! \n\nGiven what I know from the context above, I'll do my best to help you with your question. I aim to keep our chat warm and casual - just like talking to a friend who's knowledgeable and eager to help.\n\nQuestion: {question}\n\nLet me share my thoughts on that...\n[Answer in a conversational, friendly tone while maintaining professionalism]\n\nIs there anything else you'd like me to clarify? I'm happy to explain further or approach this from a different angle if that would be helpful!",
+    "memory": "",
+    "name": "",
+    "gender": "female"
+  },
+  "OpenAIModel-bJOaR": {
+    "api_key": os.getenv('OPENAI_API_KEY'),
+    "input_value": "",
+    "json_mode": False,
+    "max_tokens": None,
+    "model_kwargs": {},
+    "model_name": "gpt-4o-mini",
+    "openai_api_base": "",
+    "output_schema": {},
+    "seed": 1,
+    "stream": True,
+    "system_message": "",
+    "temperature": 0.4
+  },
+  "ChatOutput-QBSG8": {
+    "background_color": "",
+    "chat_icon": "",
+    "data_template": "{text}",
+    "input_value": "",
+    "sender": "Machine",
+    "sender_name": "AI",
+    "session_id": "",
+    "should_store_message": True,
+    "text_color": ""
+  },
+  "OpenAIEmbeddings-2xWVE": {
+    "chunk_size": 1000,
+    "client": "",
+    "default_headers": {},
+    "default_query": {},
+    "deployment": "",
+    "dimensions": None,
+    "embedding_ctx_length": 1536,
+    "max_retries": 3,
+    "model": "text-embedding-3-small",
+    "model_kwargs": {},
+    "openai_api_base": "",
+    "openai_api_key": os.getenv('OPENAI_API_KEY'),
+    "openai_api_type": "",
+    "openai_api_version": "",
+    "openai_organization": "",
+    "openai_proxy": "",
+    "request_timeout": None,
+    "show_progress_bar": False,
+    "skip_empty": False,
+    "tiktoken_enable": True,
+    "tiktoken_model_name": ""
+  },
+  "Pinecone-invrX": {
+    "distance_strategy": "Cosine",
+    "index_name": "ohotest",
+    "namespace": "ohotest",
+    "number_of_results": 4,
+    "pinecone_api_key": os.getenv('PINECONE_API_KEY'),
+    "search_query": "",
+    "text_key": "text"
+  }
 }
+
 
 def load_flow_file(file_path: str) -> Dict[str, Any]:
     """Load the flow JSON file."""
@@ -170,8 +172,6 @@ def main():
     # Initialize session state
     if 'messages' not in st.session_state:
         st.session_state.messages = []
-    if 'processing' not in st.session_state:
-        st.session_state.processing = False
     
     # Load the flow file
     flow_data = load_flow_file("rag1.json")
@@ -182,43 +182,40 @@ def main():
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
+            if "metadata" in message:
+                with st.expander("Message Metadata"):
+                    st.json(message["metadata"])
     
     # Chat input
-    if not st.session_state.processing:
-        if prompt := st.chat_input("What would you like to know?"):
-            # Set processing flag
-            st.session_state.processing = True
-            st.rerun()
-    
-    # Process message if we have a prompt and are in processing state
-    if st.session_state.processing and st.session_state.messages and st.session_state.messages[-1]["role"] != "assistant":
-        prompt = st.session_state.messages[-1]["content"] if st.session_state.messages else None
-        
-        if prompt:
-            # Add user message to chat history if it's not already there
-            if not st.session_state.messages or st.session_state.messages[-1]["content"] != prompt:
-                st.session_state.messages.append({
-                    "role": "user",
-                    "content": prompt
-                })
+    if prompt := st.chat_input("What would you like to know?"):
+        # Add user message to chat history
+        st.session_state.messages.append({
+            "role": "user", 
+            "content": prompt,
+            "metadata": {
+                "session_id": "",
+                "sender": "user",
+                "sender_name": "User"
+            }
+        })
+        with st.chat_message("user"):
+            st.markdown(prompt)
             
-            with st.chat_message("user"):
-                st.markdown(prompt)
-            
-            # Process the message and display response
-            with st.chat_message("assistant"):
-                with st.spinner("Thinking..."):
-                    message, _, _, _ = process_message(prompt, flow_data)
-                    if message:
-                        st.markdown(message)
-                        st.session_state.messages.append({
-                            "role": "assistant",
-                            "content": message
-                        })
-            
-            # Reset processing flag
-            st.session_state.processing = False
-            st.rerun()
+        # Process the message and display response
+        with st.chat_message("assistant"):
+            with st.spinner("Thinking..."):
+                message, session_id, sender, sender_name = process_message(prompt, flow_data)
+                if message:
+                    st.markdown(message)
+                    st.session_state.messages.append({
+                        "role": "assistant",
+                        "content": message,
+                        "metadata": {
+                            "session_id": session_id,
+                            "sender": sender,
+                            "sender_name": sender_name
+                        }
+                    })
 
 if __name__ == "__main__":
     main()
