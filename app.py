@@ -20,15 +20,6 @@ def validate_env_vars():
         return False
     return True
 
-def format_chat_history(messages: list) -> str:
-    """Format chat history into a string."""
-    formatted_history = []
-    for msg in messages:
-        role = "User" if msg["role"] == "user" else "Assistant"
-        formatted_history.append(f"{role}: {msg['content']}")
-    return "\n".join(formatted_history[-6:])  # Keep last 6 messages for context
-
-
 TWEAKS = {
     "ChatInput-8k4C7": {
         "background_color": "",
@@ -48,9 +39,9 @@ TWEAKS = {
     "Prompt-kHdIO": {
         "context": "",
         "question": "",
-        "template": "{context} \n--- \nPrevious conversation:\n{memory}\n\nHi there! I'm {name}, a friendly service assistant ({gender}). I really enjoy helping people and having natural conversations! \n\nGiven what I know from the context above and our previous conversation, I'll do my best to help you with your question. I aim to keep our chat warm and casual - just like talking to a friend who's knowledgeable and eager to help.\n\nQuestion: {question}\n\nLet me share my thoughts on that...\n[Answer in a conversational, friendly tone while maintaining professionalism and referring back to previous conversation when relevant]\n\nIs there anything else you'd like me to clarify? I'm happy to explain further or approach this from a different angle if that would be helpful!",
+        "template": "{context} \n--- \n{memory}\n\nHi there! I'm {name}, a friendly service assistant ({gender}). I really enjoy helping people and having natural conversations! \n\nGiven what I know from the context above, I'll do my best to help you with your question. I aim to keep our chat warm and casual - just like talking to a friend who's knowledgeable and eager to help.\n\nQuestion: {question}\n\nLet me share my thoughts on that...\n[Answer in a conversational, friendly tone while maintaining professionalism]\n\nIs there anything else you'd like me to clarify? I'm happy to explain further or approach this from a different angle if that would be helpful!",
         "memory": "",
-        "name": "Oho",
+        "name": "",
         "gender": "female"
     },
     "OpenAIModel-bJOaR": {
@@ -111,6 +102,7 @@ TWEAKS = {
         "text_key": "text"
     }
 }
+
 def load_flow_file(file_path: str) -> Dict[str, Any]:
     """Load the flow JSON file."""
     try:
@@ -153,19 +145,15 @@ def extract_message_data(result) -> Tuple[str, str, str, str]:
         st.error(f"Error extracting message data: {str(e)}")
         return ('Error processing response', '', '', '')
 
-def process_message(message: str, flow_data: Dict[str, Any], chat_history: str) -> Tuple[str, str, str, str]:
+def process_message(message: str, flow_data: Dict[str, Any]) -> Tuple[str, str, str, str]:
     """Process the message using LangFlow."""
     try:
-        # Update TWEAKS with chat history
-        updated_tweaks = TWEAKS.copy()
-        updated_tweaks["Prompt-kHdIO"]["memory"] = chat_history
-        
         result = run_flow_from_json(
             flow=flow_data,
             input_value=message,
             session_id=st.session_state.get('session_id', ''),
             fallback_to_env_vars=True,
-            tweaks=updated_tweaks
+            tweaks=TWEAKS
         )
         return extract_message_data(result)
     except Exception as e:
@@ -182,10 +170,8 @@ def main():
     # Initialize session state
     if 'messages' not in st.session_state:
         st.session_state.messages = []
-    if 'user_input' not in st.session_state:
-        st.session_state.user_input = None
-    if 'session_id' not in st.session_state:
-        st.session_state.session_id = os.urandom(16).hex()
+    if 'processing' not in st.session_state:
+        st.session_state.processing = False
     
     # Load the flow file
     flow_data = load_flow_file("rag1.json")
@@ -196,31 +182,43 @@ def main():
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
-
-    # Chat input
-    prompt = st.chat_input("What would you like to know?", key="chat_input")
     
-    if prompt:
-        # Add user message to chat history
-        st.session_state.messages.append({"role": "user", "content": prompt})
+    # Chat input
+    if not st.session_state.processing:
+        if prompt := st.chat_input("What would you like to know?"):
+            # Set processing flag
+            st.session_state.processing = True
+            st.rerun()
+    
+    # Process message if we have a prompt and are in processing state
+    if st.session_state.processing and st.session_state.messages and st.session_state.messages[-1]["role"] != "assistant":
+        prompt = st.session_state.messages[-1]["content"] if st.session_state.messages else None
         
-        # Display user message
-        with st.chat_message("user"):
-            st.markdown(prompt)
-        
-        # Get chat history
-        chat_history = format_chat_history(st.session_state.messages[:-1])
-        
-        # Display assistant response
-        with st.chat_message("assistant"):
-            with st.spinner("Thinking..."):
-                message, _, _, _ = process_message(prompt, flow_data, chat_history)
-                if message:
-                    st.markdown(message)
-                    st.session_state.messages.append({
-                        "role": "assistant",
-                        "content": message
-                    })
+        if prompt:
+            # Add user message to chat history if it's not already there
+            if not st.session_state.messages or st.session_state.messages[-1]["content"] != prompt:
+                st.session_state.messages.append({
+                    "role": "user",
+                    "content": prompt
+                })
+            
+            with st.chat_message("user"):
+                st.markdown(prompt)
+            
+            # Process the message and display response
+            with st.chat_message("assistant"):
+                with st.spinner("Thinking..."):
+                    message, _, _, _ = process_message(prompt, flow_data)
+                    if message:
+                        st.markdown(message)
+                        st.session_state.messages.append({
+                            "role": "assistant",
+                            "content": message
+                        })
+            
+            # Reset processing flag
+            st.session_state.processing = False
+            st.rerun()
 
 if __name__ == "__main__":
     main()
